@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>肌知道 · 后台管理</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --green: #4a7c59; --green-dark: #2d5a3d; --green-light: #e8f3ec;
+      --bg: #f7f6f2; --white: #fff; --text: #1a1a1a; --text-sub: #666;
+      --border: #e4e4e0; --red: #c0392b; --radius: 12px;
+      --font: 'Noto Sans SC', -apple-system, 'PingFang SC', sans-serif;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--font); background: var(--bg); color: var(--text); min-height: 100vh; }
+
+    /* ---- LOGIN ---- */
+    #loginScreen {
+      display: flex; align-items: center; justify-content: center;
+      min-height: 100vh; padding: 20px;
+    }
+    .login-box {
+      background: var(--white); border-radius: 16px; padding: 40px 32px;
+      width: 100%; max-width: 380px; box-shadow: 0 4px 24px rgba(0,0,0,0.1);
+      text-align: center;
+    }
+    .login-logo { font-size: 28px; font-weight: 700; color: var(--green-dark); margin-bottom: 6px; }
+    .login-sub  { font-size: 13px; color: var(--text-sub); margin-bottom: 28px; }
+    .login-box input {
+      width: 100%; padding: 12px 16px; border: 1.5px solid var(--border);
+      border-radius: 10px; font-size: 15px; font-family: var(--font);
+      outline: none; transition: border .2s; margin-bottom: 14px;
+    }
+    .login-box input:focus { border-color: var(--green); }
+    .btn-green {
+      width: 100%; padding: 13px; background: var(--green); color: #fff;
+      border: none; border-radius: 10px; font-size: 15px; font-weight: 600;
+      font-family: var(--font); cursor: pointer; transition: background .2s;
+    }
+    .btn-green:hover { background: var(--green-dark); }
+    .login-hint { font-size: 12px; color: var(--text-sub); margin-top: 16px; }
+    .login-error { color: var(--red); font-size: 13px; margin-top: 10px; display: none; }
+
+    /* ---- ADMIN LAYOUT ---- */
+    #adminScreen { display: none; }
+
+    .admin-header {
+      background: var(--white); border-bottom: 1px solid var(--border);
+      padding: 0 20px; height: 56px; display: flex; align-items: center;
+      justify-content: space-between; position: sticky; top: 0; z-index: 50;
+    }
+    .admin-logo { font-size: 18px; font-weight: 700; color: var(--green-dark); }
+    .admin-logo span { font-size: 12px; color: var(--text-sub); font-weight: 400; margin-left: 8px; }
+    .header-actions { display: flex; gap: 10px; }
+    .btn-sm {
+      padding: 7px 14px; border-radius: 8px; font-size: 13px; font-weight: 600;
+      cursor: pointer; border: none; font-family: var(--font); transition: all .2s;
+    }
+    .btn-outline {
+      background: transparent; border: 1.5px solid var(--border); color: var(--text-sub);
+    }
+    .btn-outline:hover { border-color: var(--green); color: var(--green); }
+    .btn-primary { background: var(--green); color: #fff; }
+    .btn-primary:hover { background: var(--green-dark); }
+    .btn-danger { background: transparent; border: 1.5px solid #e74c3c; color: #e74c3c; }
+    .btn-danger:hover { background: #e74c3c; color: #fff; }
+
+    .admin-body {
+      display: grid; grid-template-columns: 220px 1fr; max-width: 1100px;
+      margin: 0 auto; gap: 0; min-height: calc(100vh - 56px);
+    }
+
+    /* ---- SIDEBAR ---- */
+    .sidebar {
+      background: var(--white); border-right: 1px solid var(--border);
+      padding: 16px 0; overflow-y: auto;
+    }
+    .sidebar-title { font-size: 11px; font-weight: 700; color: var(--text-sub);
+      padding: 0 16px 8px; letter-spacing: 1px; text-transform: uppercase; }
+    .sidebar-item {
+      padding: 11px 16px; font-size: 14px; cursor: pointer;
+      transition: background .15s; display: flex; align-items: center; gap: 8px;
+      border-left: 3px solid transparent;
+    }
+    .sidebar-item:hover { background: var(--green-light); }
+    .sidebar-item.active { background: var(--green-light); border-left-color: var(--green); font-weight: 600; color: var(--green-dark); }
+    .sidebar-item .s-emoji { font-size: 16px; }
+    .sidebar-item .s-name { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .sidebar-item .s-cat { font-size: 10px; color: var(--text-sub); background: var(--bg);
+      padding: 2px 6px; border-radius: 10px; flex-shrink: 0; }
+
+    /* ---- EDITOR ---- */
+    .editor-area {
+      padding: 28px 28px 60px;
+      overflow-y: auto;
+    }
+
+    .editor-empty {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      height: 60vh; gap: 12px; color: var(--text-sub);
+    }
+    .editor-empty .big-icon { font-size: 48px; }
+    .editor-empty p { font-size: 14px; }
+
+    .editor-form { display: none; }
+    .editor-form.visible { display: block; }
+
+    .form-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--border);
+    }
+    .form-title { font-size: 20px; font-weight: 700; }
+    .form-actions { display: flex; gap: 8px; }
+
+    .form-group { margin-bottom: 20px; }
+    .form-label {
+      display: block; font-size: 12px; font-weight: 700; color: var(--text-sub);
+      margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .form-input, .form-textarea, .form-select {
+      width: 100%; padding: 10px 14px; border: 1.5px solid var(--border);
+      border-radius: 10px; font-size: 14px; font-family: var(--font);
+      color: var(--text); outline: none; transition: border .2s;
+      background: var(--white);
+    }
+    .form-input:focus, .form-textarea:focus, .form-select:focus { border-color: var(--green); }
+    .form-textarea { resize: vertical; line-height: 1.65; }
+    .form-hint { font-size: 11px; color: var(--text-sub); margin-top: 5px; }
+
+    /* 术后列表编辑器 */
+    .aftercare-editor { display: flex; flex-direction: column; gap: 8px; }
+    .aftercare-item-row {
+      display: flex; align-items: flex-start; gap: 8px;
+    }
+    .aftercare-item-row textarea {
+      flex: 1; padding: 9px 12px; border: 1.5px solid var(--border);
+      border-radius: 8px; font-size: 13px; font-family: var(--font);
+      outline: none; resize: vertical; min-height: 60px; line-height: 1.6;
+      transition: border .2s;
+    }
+    .aftercare-item-row textarea:focus { border-color: var(--green); }
+    .row-actions { display: flex; flex-direction: column; gap: 4px; flex-shrink: 0; }
+    .icon-btn {
+      width: 28px; height: 28px; border-radius: 6px; border: none;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px; cursor: pointer; transition: all .15s; background: var(--bg);
+      color: var(--text-sub);
+    }
+    .icon-btn:hover { background: var(--border); }
+    .icon-btn.del:hover { background: #fdecea; color: var(--red); }
+    .add-item-btn {
+      margin-top: 4px; padding: 9px; border: 1.5px dashed var(--border);
+      border-radius: 8px; background: transparent; font-size: 13px;
+      color: var(--text-sub); cursor: pointer; font-family: var(--font);
+      transition: all .2s; text-align: center;
+    }
+    .add-item-btn:hover { border-color: var(--green); color: var(--green); background: var(--green-light); }
+
+    /* 保存提示 */
+    .save-toast {
+      position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(80px);
+      background: var(--green-dark); color: #fff; padding: 12px 22px; border-radius: 24px;
+      font-size: 14px; font-weight: 500; z-index: 999; transition: transform .3s;
+      pointer-events: none; white-space: nowrap;
+    }
+    .save-toast.show { transform: translateX(-50%) translateY(0); }
+
+    /* 导出区域 */
+    .export-section {
+      background: var(--white); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 20px; margin-top: 28px;
+    }
+    .export-section h3 { font-size: 14px; font-weight: 700; margin-bottom: 8px; }
+    .export-section p { font-size: 12px; color: var(--text-sub); margin-bottom: 14px; line-height: 1.6; }
+    .export-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+    .export-area {
+      width: 100%; margin-top: 14px; padding: 12px; border: 1.5px solid var(--border);
+      border-radius: 8px; font-size: 12px; font-family: monospace; background: var(--bg);
+      min-height: 120px; resize: vertical; display: none;
+    }
+
+    @media (max-width: 640px) {
+      .admin-body { grid-template-columns: 1fr; }
+      .sidebar { border-right: none; border-bottom: 1px solid var(--border); max-height: 180px; }
+      .editor-area { padding: 20px 16px 60px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ======= LOGIN ======= -->
+<div id="loginScreen">
+  <div class="login-box">
+    <div class="login-logo">肌知道</div>
+    <div class="login-sub">后台内容管理</div>
+    <input type="password" id="pwInput" placeholder="请输入管理密码" autocomplete="current-password" />
+    <button class="btn-green" id="loginBtn">进入后台</button>
+    <div class="login-error" id="loginError">密码错误，请重试</div>
+    <div class="login-hint">首次使用请先在下方设置密码</div>
+    <div style="margin-top:12px; display:flex; gap:8px;">
+      <input type="password" id="newPwInput" placeholder="新密码（首次设置）" style="flex:1; padding:10px 12px; border:1.5px solid var(--border); border-radius:8px; font-size:13px; font-family:var(--font); outline:none;" />
+      <button id="setPwBtn" style="padding:10px 14px; background:var(--green-light); color:var(--green-dark); border:none; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer; font-family:var(--font);">设置</button>
+    </div>
+  </div>
+</div>
+
+<!-- ======= ADMIN ======= -->
+<div id="adminScreen">
+  <header class="admin-header">
+    <div class="admin-logo">肌知道 <span>内容管理后台</span></div>
+    <div class="header-actions">
+      <button class="btn-sm btn-outline" id="previewBtn">← 返回网站</button>
+      <button class="btn-sm btn-danger" id="logoutBtn">退出</button>
+    </div>
+  </header>
+
+  <div class="admin-body">
+    <!-- 侧边栏 -->
+    <aside class="sidebar">
+      <div class="sidebar-title">治疗项目</div>
+      <div id="sidebarList"></div>
+    </aside>
+
+    <!-- 编辑区 -->
+    <div class="editor-area">
+      <div class="editor-empty" id="editorEmpty">
+        <div class="big-icon">✏️</div>
+        <p>从左侧选择一个项目开始编辑</p>
+      </div>
+
+      <div class="editor-form" id="editorForm">
+        <div class="form-header">
+          <div class="form-title" id="formTitle"></div>
+          <div class="form-actions">
+            <button class="btn-sm btn-outline" id="resetBtn">撤销更改</button>
+            <button class="btn-sm btn-primary" id="saveBtn">💾 保存</button>
+          </div>
+        </div>
+
+        <!-- 基本信息 -->
+        <div class="form-group">
+          <label class="form-label">项目名称（中文）</label>
+          <input type="text" class="form-input" id="f-name" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">项目名称（英文）</label>
+          <input type="text" class="form-input" id="f-nameEn" />
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
+          <div class="form-group">
+            <label class="form-label">分类</label>
+            <select class="form-select" id="f-category">
+              <option>紧致塑形</option>
+              <option>补水保湿</option>
+              <option>肌肤修护</option>
+              <option>美白亮肤</option>
+              <option>注射美容</option>
+              <option>问题肌肤</option>
+              <option>祛斑祛痣</option>
+              <option>脱毛</option>
+              <option>塑形瘦身</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">图标 Emoji</label>
+            <input type="text" class="form-input" id="f-emoji" maxlength="4" style="font-size:20px; text-align:center;" />
+          </div>
+        </div>
+
+        <!-- 使用设备 -->
+        <div class="form-group">
+          <label class="form-label">使用设备（逗号分隔）</label>
+          <input type="text" class="form-input" id="f-devices" placeholder="如：Potenza, Lavieen（无则留空）" />
+          <div class="form-hint">多个设备用逗号「,」分隔</div>
+        </div>
+
+        <!-- 项目介绍 -->
+        <div class="form-group">
+          <label class="form-label">项目介绍</label>
+          <textarea class="form-textarea" id="f-intro" rows="4" placeholder="项目的简要介绍..."></textarea>
+        </div>
+
+        <!-- 术后注意事项 -->
+        <div class="form-group">
+          <label class="form-label">术后注意事项</label>
+          <div class="aftercare-editor" id="aftercareEditor"></div>
+          <button class="add-item-btn" id="addItemBtn">＋ 添加一条注意事项</button>
+        </div>
+
+        <!-- 导出区域 -->
+        <div class="export-section">
+          <h3>📤 导出 & 部署</h3>
+          <p>编辑完成后，点击「导出数据文件」生成更新后的 treatments.js，然后用它替换 GitHub 仓库中的 <code>data/treatments.js</code> 文件，GitHub Pages 会自动更新。</p>
+          <div class="export-btns">
+            <button class="btn-sm btn-primary" id="exportBtn">导出数据文件</button>
+            <button class="btn-sm btn-outline" id="showCodeBtn">查看代码</button>
+          </div>
+          <textarea class="export-area" id="exportArea" readonly></textarea>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="save-toast" id="saveToast">✓ 已保存到本地</div>
+
+<script src="../data/treatments.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  // ---- 密码管理 ----
+  const PW_KEY = 'jizhi_admin_pw';
+  const DATA_KEY = 'jizhi_treatments';
+
+  function getStoredPw()  { return localStorage.getItem(PW_KEY) || ''; }
+  function setStoredPw(v) { localStorage.setItem(PW_KEY, v); }
+
+  document.getElementById('setPwBtn').addEventListener('click', () => {
+    const v = document.getElementById('newPwInput').value.trim();
+    if (!v) return alert('请输入新密码');
+    setStoredPw(v);
+    alert('密码已设置，请用新密码登录');
+  });
+
+  document.getElementById('loginBtn').addEventListener('click', login);
+  document.getElementById('pwInput').addEventListener('keydown', e => { if (e.key === 'Enter') login(); });
+
+  function login() {
+    const pw = document.getElementById('pwInput').value;
+    const stored = getStoredPw();
+    if (!stored) { showError('请先设置密码'); return; }
+    if (pw === stored) {
+      document.getElementById('loginScreen').style.display = 'none';
+      document.getElementById('adminScreen').style.display = 'block';
+      initAdmin();
+    } else {
+      showError('密码错误，请重试');
+    }
+  }
+
+  function showError(msg) {
+    const el = document.getElementById('loginError');
+    el.textContent = msg;
+    el.style.display = 'block';
+    setTimeout(() => el.style.display = 'none', 3000);
+  }
+
+  document.getElementById('logoutBtn').addEventListener('click', () => {
+    document.getElementById('adminScreen').style.display = 'none';
+    document.getElementById('loginScreen').style.display = 'flex';
+    document.getElementById('pwInput').value = '';
+  });
+
+  document.getElementById('previewBtn').addEventListener('click', () => {
+    window.location.href = '../index.html';
+  });
+
+  // ---- 数据管理 ----
+  let data = [];
+  let currentIndex = -1;
+  let originalItem = null;
+
+  function loadData() {
+    const stored = localStorage.getItem(DATA_KEY);
+    if (stored) {
+      try { data = JSON.parse(stored); } catch { data = JSON.parse(JSON.stringify(TREATMENTS)); }
+    } else {
+      data = JSON.parse(JSON.stringify(TREATMENTS));
+    }
+  }
+
+  function saveData() {
+    localStorage.setItem(DATA_KEY, JSON.stringify(data));
+  }
+
+  // ---- 初始化后台 ----
+  function initAdmin() {
+    loadData();
+    renderSidebar();
+  }
+
+  // ---- 侧边栏 ----
+  function renderSidebar() {
+    const list = document.getElementById('sidebarList');
+    list.innerHTML = '';
+    data.forEach((t, i) => {
+      const item = document.createElement('div');
+      item.className = 'sidebar-item' + (i === currentIndex ? ' active' : '');
+      item.innerHTML = `<span class="s-emoji">${t.emoji}</span><span class="s-name">${t.name}</span><span class="s-cat">${t.category}</span>`;
+      item.addEventListener('click', () => selectItem(i));
+      list.appendChild(item);
+    });
+  }
+
+  // ---- 选择项目 ----
+  function selectItem(i) {
+    currentIndex = i;
+    originalItem = JSON.parse(JSON.stringify(data[i]));
+
+    renderSidebar();
+
+    const t = data[i];
+    document.getElementById('editorEmpty').style.display = 'none';
+    document.getElementById('editorForm').classList.add('visible');
+    document.getElementById('formTitle').textContent = t.emoji + ' ' + t.name;
+
+    document.getElementById('f-name').value     = t.name;
+    document.getElementById('f-nameEn').value   = t.nameEn;
+    document.getElementById('f-emoji').value    = t.emoji;
+    document.getElementById('f-intro').value    = t.intro;
+    document.getElementById('f-devices').value  = (t.devices || []).join(', ');
+
+    const catSel = document.getElementById('f-category');
+    for (let opt of catSel.options) {
+      if (opt.value === t.category) { opt.selected = true; break; }
+    }
+
+    renderAftercareEditor(t.aftercare);
+  }
+
+  // ---- 术后注意事项编辑器 ----
+  function renderAftercareEditor(items) {
+    const editor = document.getElementById('aftercareEditor');
+    editor.innerHTML = '';
+    items.forEach((item, idx) => addAftercareRow(item, idx));
+  }
+
+  function addAftercareRow(text, idx) {
+    const editor = document.getElementById('aftercareEditor');
+    const row = document.createElement('div');
+    row.className = 'aftercare-item-row';
+    row.dataset.idx = idx !== undefined ? idx : editor.children.length;
+
+    const ta = document.createElement('textarea');
+    ta.value = text || '';
+    ta.placeholder = '输入注意事项...';
+
+    const actions = document.createElement('div');
+    actions.className = 'row-actions';
+
+    const upBtn = document.createElement('button');
+    upBtn.className = 'icon-btn'; upBtn.title = '上移'; upBtn.textContent = '↑';
+    upBtn.addEventListener('click', () => moveRow(row, -1));
+
+    const downBtn = document.createElement('button');
+    downBtn.className = 'icon-btn'; downBtn.title = '下移'; downBtn.textContent = '↓';
+    downBtn.addEventListener('click', () => moveRow(row, 1));
+
+    const delBtn = document.createElement('button');
+    delBtn.className = 'icon-btn del'; delBtn.title = '删除'; delBtn.textContent = '✕';
+    delBtn.addEventListener('click', () => row.remove());
+
+    actions.append(upBtn, downBtn, delBtn);
+    row.append(ta, actions);
+    editor.appendChild(row);
+  }
+
+  function moveRow(row, dir) {
+    const parent = row.parentNode;
+    if (dir === -1 && row.previousElementSibling) {
+      parent.insertBefore(row, row.previousElementSibling);
+    } else if (dir === 1 && row.nextElementSibling) {
+      parent.insertBefore(row.nextElementSibling, row);
+    }
+  }
+
+  document.getElementById('addItemBtn').addEventListener('click', () => {
+    addAftercareRow('');
+    const rows = document.querySelectorAll('.aftercare-item-row');
+    rows[rows.length - 1].querySelector('textarea').focus();
+  });
+
+  // ---- 保存 ----
+  document.getElementById('saveBtn').addEventListener('click', () => {
+    if (currentIndex < 0) return;
+
+    const t = data[currentIndex];
+    t.name     = document.getElementById('f-name').value.trim();
+    t.nameEn   = document.getElementById('f-nameEn').value.trim();
+    t.emoji    = document.getElementById('f-emoji').value.trim();
+    t.category = document.getElementById('f-category').value;
+    t.intro    = document.getElementById('f-intro').value.trim();
+    t.devices  = document.getElementById('f-devices').value
+      .split(',').map(s => s.trim()).filter(Boolean);
+
+    const rows = document.querySelectorAll('.aftercare-item-row textarea');
+    t.aftercare = Array.from(rows).map(ta => ta.value.trim()).filter(Boolean);
+
+    saveData();
+    renderSidebar();
+    showToast('✓ 已保存到本地');
+    document.getElementById('formTitle').textContent = t.emoji + ' ' + t.name;
+    originalItem = JSON.parse(JSON.stringify(t));
+  });
+
+  // ---- 撤销 ----
+  document.getElementById('resetBtn').addEventListener('click', () => {
+    if (!originalItem) return;
+    data[currentIndex] = JSON.parse(JSON.stringify(originalItem));
+    selectItem(currentIndex);
+    showToast('↺ 已撤销更改');
+  });
+
+  // ---- 导出 ----
+  document.getElementById('exportBtn').addEventListener('click', exportFile);
+  document.getElementById('showCodeBtn').addEventListener('click', () => {
+    const area = document.getElementById('exportArea');
+    if (area.style.display === 'block') { area.style.display = 'none'; return; }
+    area.style.display = 'block';
+    area.value = generateCode();
+  });
+
+  function exportFile() {
+    const code = generateCode();
+    const blob = new Blob([code], { type: 'text/javascript;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'treatments.js';
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast('📦 文件已下载');
+  }
+
+  function generateCode() {
+    const cats = [...new Set(data.map(t => t.category))];
+    const catList = ['全部', ...cats];
+    return `const TREATMENTS = ${JSON.stringify(data, null, 2)};\n\nconst COMMON_NOTES = ${JSON.stringify(COMMON_NOTES, null, 2)};\n\nconst CATEGORIES = ${JSON.stringify(catList, null, 2)};\n`;
+  }
+
+  // ---- Toast ----
+  function showToast(msg) {
+    const t = document.getElementById('saveToast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2500);
+  }
+})();
+</script>
+</body>
+</html>
