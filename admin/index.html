@@ -198,11 +198,6 @@
     <input type="password" id="pwInput" placeholder="请输入管理密码" autocomplete="current-password" />
     <button class="btn-green" id="loginBtn">进入后台</button>
     <div class="login-error" id="loginError">密码错误，请重试</div>
-    <div class="login-hint">首次使用请先在下方设置密码</div>
-    <div style="margin-top:12px; display:flex; gap:8px;">
-      <input type="password" id="newPwInput" placeholder="新密码（首次设置）" style="flex:1; padding:10px 12px; border:1.5px solid var(--border); border-radius:8px; font-size:13px; font-family:var(--font); outline:none;" />
-      <button id="setPwBtn" style="padding:10px 14px; background:var(--green-light); color:var(--green-dark); border:none; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer; font-family:var(--font);">设置</button>
-    </div>
   </div>
 </div>
 
@@ -211,6 +206,7 @@
   <header class="admin-header">
     <div class="admin-logo">肌知道 <span>内容管理后台</span></div>
     <div class="header-actions">
+      <button class="btn-sm btn-outline" id="changePwBtn">🔒 修改密码</button>
       <button class="btn-sm btn-outline" id="previewBtn">← 返回网站</button>
       <button class="btn-sm btn-danger" id="logoutBtn">退出</button>
     </div>
@@ -304,6 +300,21 @@
   </div>
 </div>
 
+<!-- 修改密码弹窗 -->
+<div id="changePwOverlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.45); z-index:999; align-items:center; justify-content:center;">
+  <div style="background:#fff; border-radius:16px; padding:32px 28px; width:100%; max-width:360px; margin:20px;">
+    <h3 style="font-size:16px; font-weight:700; margin-bottom:20px; color:var(--green-dark);">🔒 修改管理密码</h3>
+    <input type="password" id="oldPwInput" placeholder="当前密码" style="width:100%; padding:10px 14px; border:1.5px solid var(--border); border-radius:8px; font-size:14px; font-family:var(--font); outline:none; margin-bottom:10px;" />
+    <input type="password" id="newPw1Input" placeholder="新密码" style="width:100%; padding:10px 14px; border:1.5px solid var(--border); border-radius:8px; font-size:14px; font-family:var(--font); outline:none; margin-bottom:10px;" />
+    <input type="password" id="newPw2Input" placeholder="再次输入新密码" style="width:100%; padding:10px 14px; border:1.5px solid var(--border); border-radius:8px; font-size:14px; font-family:var(--font); outline:none; margin-bottom:14px;" />
+    <div id="changePwError" style="color:var(--red); font-size:12px; margin-bottom:10px; display:none;"></div>
+    <div style="display:flex; gap:10px;">
+      <button id="changePwCancelBtn" style="flex:1; padding:11px; border:1.5px solid var(--border); background:transparent; border-radius:8px; font-size:14px; font-family:var(--font); cursor:pointer;">取消</button>
+      <button id="changePwConfirmBtn" style="flex:1; padding:11px; background:var(--green); color:#fff; border:none; border-radius:8px; font-size:14px; font-weight:600; font-family:var(--font); cursor:pointer;">确认修改</button>
+    </div>
+  </div>
+</div>
+
 <div class="save-toast" id="saveToast">✓ 已保存到本地</div>
 
 <script src="../data/treatments.js"></script>
@@ -311,33 +322,34 @@
 (function () {
   'use strict';
 
-  // ---- 密码管理 ----
-  const PW_KEY = 'jizhi_admin_pw';
+  // ---- 密码管理（SHA-256 加密）----
+  // ⚠️ 初始密码：jizhi2024  登录后请立即在后台「修改密码」
+  const DEFAULT_PW_HASH = '97c10ea16e32809bea5c6d1da420e74ebebae63f6f1384faa049c0b37271f992';
+  const PW_KEY   = 'jizhi_admin_pw_hash';
   const DATA_KEY = 'jizhi_treatments';
 
-  function getStoredPw()  { return localStorage.getItem(PW_KEY) || ''; }
-  function setStoredPw(v) { localStorage.setItem(PW_KEY, v); }
+  async function sha256(str) {
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+  }
 
-  document.getElementById('setPwBtn').addEventListener('click', () => {
-    const v = document.getElementById('newPwInput').value.trim();
-    if (!v) return alert('请输入新密码');
-    setStoredPw(v);
-    alert('密码已设置，请用新密码登录');
-  });
+  function getStoredHash() { return localStorage.getItem(PW_KEY) || DEFAULT_PW_HASH; }
+  function setStoredHash(h) { localStorage.setItem(PW_KEY, h); }
 
   document.getElementById('loginBtn').addEventListener('click', login);
   document.getElementById('pwInput').addEventListener('keydown', e => { if (e.key === 'Enter') login(); });
 
-  function login() {
+  async function login() {
     const pw = document.getElementById('pwInput').value;
-    const stored = getStoredPw();
-    if (!stored) { showError('请先设置密码'); return; }
-    if (pw === stored) {
+    if (!pw) { showError('请输入密码'); return; }
+    const hash = await sha256(pw);
+    if (hash === getStoredHash()) {
       document.getElementById('loginScreen').style.display = 'none';
       document.getElementById('adminScreen').style.display = 'block';
       initAdmin();
     } else {
       showError('密码错误，请重试');
+      document.getElementById('pwInput').value = '';
     }
   }
 
@@ -356,6 +368,38 @@
 
   document.getElementById('previewBtn').addEventListener('click', () => {
     window.location.href = '../index.html';
+  });
+
+  // ---- 修改密码（仅登录后可用）----
+  document.getElementById('changePwBtn').addEventListener('click', () => {
+    document.getElementById('changePwOverlay').style.display = 'flex';
+    document.getElementById('oldPwInput').focus();
+  });
+  document.getElementById('changePwCancelBtn').addEventListener('click', () => {
+    document.getElementById('changePwOverlay').style.display = 'none';
+    ['oldPwInput','newPw1Input','newPw2Input'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('changePwError').style.display = 'none';
+  });
+  document.getElementById('changePwConfirmBtn').addEventListener('click', async () => {
+    const oldPw = document.getElementById('oldPwInput').value;
+    const newPw1 = document.getElementById('newPw1Input').value;
+    const newPw2 = document.getElementById('newPw2Input').value;
+    const errEl = document.getElementById('changePwError');
+    const showPwErr = msg => { errEl.textContent = msg; errEl.style.display = 'block'; };
+
+    if (!oldPw || !newPw1 || !newPw2) { showPwErr('请填写所有字段'); return; }
+    if (newPw1 !== newPw2) { showPwErr('两次输入的新密码不一致'); return; }
+    if (newPw1.length < 6) { showPwErr('新密码至少 6 位'); return; }
+
+    const oldHash = await sha256(oldPw);
+    if (oldHash !== getStoredHash()) { showPwErr('当前密码错误'); return; }
+
+    const newHash = await sha256(newPw1);
+    setStoredHash(newHash);
+    document.getElementById('changePwOverlay').style.display = 'none';
+    ['oldPwInput','newPw1Input','newPw2Input'].forEach(id => document.getElementById(id).value = '');
+    errEl.style.display = 'none';
+    showToast('🔒 密码已修改成功');
   });
 
   // ---- 数据管理 ----
