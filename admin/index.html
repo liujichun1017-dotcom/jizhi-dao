@@ -322,28 +322,37 @@
 (function () {
   'use strict';
 
-  // ---- 密码管理（SHA-256 加密）----
-  // ⚠️ 初始密码：jizhi2024  登录后请立即在后台「修改密码」
-  const DEFAULT_PW_HASH = '97c10ea16e32809bea5c6d1da420e74ebebae63f6f1384faa049c0b37271f992';
-  const PW_KEY   = 'jizhi_admin_pw_hash';
+  // ---- 密码管理 ----
+  // 初始密码：jizhi2024（登录后可在后台修改）
+  const PW_KEY   = 'jizhi_pw_v2';
   const DATA_KEY = 'jizhi_treatments';
 
-  async function sha256(str) {
-    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
-    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+  // 简单哈希（同步，无需 async）
+  function simpleHash(str) {
+    let h1 = 0xdeadbeef, h2 = 0x41c6ce57;
+    for (let i = 0; i < str.length; i++) {
+      const c = str.charCodeAt(i);
+      h1 = Math.imul(h1 ^ c, 0x9e3779b9);
+      h2 = Math.imul(h2 ^ c, 0x5f356495);
+    }
+    h1 = Math.imul(h1 ^ (h1>>>16), 0x45d9f3b) ^ Math.imul(h2 ^ (h2>>>13), 0x45d9f3b);
+    h2 = Math.imul(h2 ^ (h2>>>16), 0x45d9f3b) ^ Math.imul(h1 ^ (h1>>>13), 0x45d9f3b);
+    return (4294967296 * (2097151 & h2) + (h1>>>0)).toString(36);
   }
 
-  function getStoredHash() { return localStorage.getItem(PW_KEY) || DEFAULT_PW_HASH; }
+  // 初始密码 jizhi2024 的哈希值
+  const DEFAULT_HASH = simpleHash('jizhi2024');
+
+  function getStoredHash() { return localStorage.getItem(PW_KEY) || DEFAULT_HASH; }
   function setStoredHash(h) { localStorage.setItem(PW_KEY, h); }
 
   document.getElementById('loginBtn').addEventListener('click', login);
   document.getElementById('pwInput').addEventListener('keydown', e => { if (e.key === 'Enter') login(); });
 
-  async function login() {
+  function login() {
     const pw = document.getElementById('pwInput').value;
     if (!pw) { showError('请输入密码'); return; }
-    const hash = await sha256(pw);
-    if (hash === getStoredHash()) {
+    if (simpleHash(pw) === getStoredHash()) {
       document.getElementById('loginScreen').style.display = 'none';
       document.getElementById('adminScreen').style.display = 'block';
       initAdmin();
@@ -380,7 +389,7 @@
     ['oldPwInput','newPw1Input','newPw2Input'].forEach(id => document.getElementById(id).value = '');
     document.getElementById('changePwError').style.display = 'none';
   });
-  document.getElementById('changePwConfirmBtn').addEventListener('click', async () => {
+  document.getElementById('changePwConfirmBtn').addEventListener('click', () => {
     const oldPw = document.getElementById('oldPwInput').value;
     const newPw1 = document.getElementById('newPw1Input').value;
     const newPw2 = document.getElementById('newPw2Input').value;
@@ -391,11 +400,9 @@
     if (newPw1 !== newPw2) { showPwErr('两次输入的新密码不一致'); return; }
     if (newPw1.length < 6) { showPwErr('新密码至少 6 位'); return; }
 
-    const oldHash = await sha256(oldPw);
-    if (oldHash !== getStoredHash()) { showPwErr('当前密码错误'); return; }
+    if (simpleHash(oldPw) !== getStoredHash()) { showPwErr('当前密码错误'); return; }
 
-    const newHash = await sha256(newPw1);
-    setStoredHash(newHash);
+    setStoredHash(simpleHash(newPw1));
     document.getElementById('changePwOverlay').style.display = 'none';
     ['oldPwInput','newPw1Input','newPw2Input'].forEach(id => document.getElementById(id).value = '');
     errEl.style.display = 'none';
